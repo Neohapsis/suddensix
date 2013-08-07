@@ -245,6 +245,7 @@ echo "This is your current address information: "
 sipcalc $DINTERFACE
 # Prompt for second IP on the subnet
 read -p "Please enter an additional available IPv4 address in this range: " DSECONDIP
+#TODO check whether RA Guard is on the system, configure accordingly.
 #Configure these system parameters in a non-persistent way for now
 loadIPv6Module
 enableForwarding
@@ -263,7 +264,8 @@ if startTayga; then
     #TODO: check if we need to enable them
     service radvd stop
     sleep 3
-    service radvd start
+    #service radvd start
+    fake_router26 eth0 -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other & 
     service bind9 restart
     service wide-dhcpv6-server restart
     #More non-persistent configuration
