@@ -208,7 +208,7 @@ function isPkgInstalled {
 }
 #Install packages, these should all be in the standard Ubuntu repos
 function installPrereqDpkgs {
-    /usr/bin/apt-get install -y make gcc libpcap0.8-dev libssl-dev sipcalc tayga radvd wide-dhcpv6-server bind9
+    /usr/bin/apt-get install -y make gcc libpcap0.8-dev libssl-dev sipcalc tayga radvd wide-dhcpv6-server bind9 iptables
 }
 #Install THC-IPv6 Toolkit
 function installTHC {
