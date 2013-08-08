@@ -209,21 +209,28 @@ function isPkgInstalled {
 }
 #Install packages, these should all be in the standard Ubuntu repos
 function installPrereqDpkgs {
-    /usr/bin/apt-get install -y make gcc libpcap0.8-dev libssl-dev sipcalc tayga radvd wide-dhcpv6-server bind9 iptables
+    /usr/bin/apt-get install -y sipcalc tayga radvd wide-dhcpv6-server bind9 iptables
 }
 #Install THC-IPv6 Toolkit
 function installTHC {
     #assuming that if fake_router6 is installed, everything's installed. reasonable?
     if hash fake_router6 2>/dev/null;
     then
-	echo "THC-IPv6 toolkit already installed."
+	echo "THC-IPv6 toolkit installed."
     else
-	wget ${THCURL}
-	tar -zxvf thc-ipv6-2.3.tar.gz
-	cd thc-ipv6-2.3
-	make install
-	#cleanup
-	rm -rf thc-ipv6-2.3*
+	read -p "Install THC-IPv6 toolkit? (Required for RA guard evasion.)" #also required for other features, one day...
+	if [[ $REPLY =~ [Yy] ]]
+	then 
+	    #prereqs
+	    /usr/bin/apt-get install -y make gcc libpcap0.8-dev libssl-dev
+	    wget ${THCURL}
+	    tar -zxvf thc-ipv6-2.3.tar.gz
+	    cd thc-ipv6-2.3
+	    make install
+	    #cleanup
+	    cd ..
+	    rm -rf thc-ipv6-2.3*
+	fi
     fi
 }
 #Set up Tayga interface, IP addresses and routes, and and start Tayga
