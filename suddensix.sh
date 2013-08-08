@@ -7,6 +7,7 @@ PATH="/usr/bin:/usr/sbin:/bin:/sbin:/usr/local/bin"
 # Run me as root!
 
 #GLOBALS
+THCURL=http://www.thc.org/releases/thc-ipv6-2.3.tar.gz
 FRAGMENT=false
 #TAYGAINTERFACE default name for the Tayga virtual interface
 TAYGAINTERFACE="nat64"
@@ -217,7 +218,7 @@ function installTHC {
     then
 	echo "THC-IPv6 toolkit already installed."
     else
-	wget http://www.thc.org/releases/thc-ipv6-2.3.tar.gz
+	wget ${THCURL}
 	tar -zxvf thc-ipv6-2.3.tar.gz
 	cd thc-ipv6-2.3
 	make install
@@ -250,7 +251,7 @@ function stopTayga {
 function startFakeRouter {
     while true
     do
-	fake_router26 ${DINTERFACE} -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other
+	fake_router26 ${DINTERFACE} -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other -D ${DIP6} -d 30
     done
 }
 
