@@ -208,7 +208,7 @@ function isPkgInstalled {
 }
 #Install packages, these should all be in the standard Ubuntu repos
 function installPrereqDpkgs {
-    /usr/bin/apt-get install -y make gcc libpcap0.8 libpcap0.8-dev libssl-dev sipcalc tayga radvd wide-dhcpv6-server bind9
+    /usr/bin/apt-get install -y make gcc libpcap0.8-dev libssl-dev sipcalc tayga radvd wide-dhcpv6-server bind9
 }
 #Install THC-IPv6 Toolkit
 function installTHC {
@@ -222,8 +222,7 @@ function installTHC {
 	cd thc-ipv6-2.3
 	make install
 	#cleanup
-	rm -rf thc-ipv6-2.3/
-	rm -rf thc-ipv6-2.3.tar.gz*
+	rm -rf thc-ipv6-2.3*
     fi
 }
 #Set up Tayga interface, IP addresses and routes, and and start Tayga
