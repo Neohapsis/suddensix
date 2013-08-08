@@ -1,5 +1,5 @@
 #!/bin/bash
-PATH="/usr/bin:/usr/sbin:/bin:/sbin"
+PATH="/usr/bin:/usr/sbin:/bin:/sbin:/usr/local/bin"
 #
 # IPv6 MITM Setup Script
 # This script will install dependencies and configure the system for IPv6 infrastructure
@@ -208,24 +208,25 @@ function isPkgInstalled {
 }
 #Install packages, these should all be in the standard Ubuntu repos
 function installPrereqDpkgs {
-    /usr/bin/apt-get install -y sipcalc tayga radvd wide-dhcpv6-server bind9
+    /usr/bin/apt-get install -y make gcc libpcap0.8 libpcap0.8-dev libssl-dev sipcalc tayga radvd wide-dhcpv6-server bind9
 }
 #Install THC-IPv6 Toolkit
 function installTHC {
     #assuming that if fake_router6 is installed, everything's installed. reasonable?
-    if [[ -z 'whereis fake_router6' ]]
+    if hash fake_router6 2>/dev/null;
     then
+	echo "THC-IPv6 toolkit already installed."
+    else
 	wget http://www.thc.org/releases/thc-ipv6-2.3.tar.gz
 	tar -zxvf thc-ipv6-2.3.tar.gz
 	cd thc-ipv6-2.3
 	make install
 	#cleanup
-	rm -rf thc-ipv6-2.3.tar.gz
-    else
-	echo "THC-IPv6 toolkit already installed."
+	rm -rf thc-ipv6-2.3/
+	rm -rf thc-ipv6-2.3.tar.gz*
     fi
 }
-#Set up Taya interface, IP addresses and routes, and and start Tayga
+#Set up Tayga interface, IP addresses and routes, and and start Tayga
 function startTayga {
     # Set up interfaces
     ip addr add "${DIP6}/${DIP6CIDR}" dev $DINTERFACE
