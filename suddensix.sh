@@ -258,6 +258,7 @@ function stopTayga {
 function startFakeRouter {
     while true
     do
+	trap "" 15
 	fake_router26 ${DINTERFACE} -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other -D ${DIP6} -d 30
     done
 }
@@ -306,7 +307,7 @@ if startTayga; then
     sleep 3
     if $FRAGMENT
     then
-	startFakeRouter &
+	startFakeRouter >/dev/null 2>&1 &
     else
 	service radvd start
     fi
