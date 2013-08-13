@@ -274,8 +274,8 @@ function startFakeRouter {
 
 #EXECUTION
 #cleanup old instances of suddensix & fake_router running in the background
-killall suddensix.sh -o 2s
-killall fake_router26 -o 2s
+killall suddensix.sh -o 2s 2>/dev/null
+killall fake_router26 2>/dev/null
 
 /bin/ping6 -c 3 google.com && ( echo "I am able to IPv6 ping google.com already, bailing out."; exit )
 
