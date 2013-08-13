@@ -273,9 +273,11 @@ function startFakeRouter {
 }
 
 #EXECUTION
+#cleanup old instances of suddensix & fake_router running in the background
+killall suddensix.sh -o 2s
+killall fake_router26 -o 2s
 
 /bin/ping6 -c 3 google.com && ( echo "I am able to IPv6 ping google.com already, bailing out."; exit )
-
 
 #Kind of mindless for now just install the packages we need first
 echo "Welcome, I'll install a few packages and ask a couple of questions first"
@@ -287,13 +289,15 @@ echo "This is your current address information: "
 sipcalc $DINTERFACE
 # Prompt for second IP on the subnet
 read -p "Please enter an additional available IPv4 address in this range: " DSECONDIP
-#TODO check whether RA Guard is on the system, configure accordingly.
-read -p "Fragment router advertisements to evade RA Guard? [y/n] "
-if [[ $REPLY =~ [Yy] ]]
+# If we can, ask whether we should fragment RAs
+FRAGMENT=false
+if hash fake_router26 2> /dev/null;
 then
-    FRAGMENT=true
-else
-    FRAGMENT=false
+    read -p "Fragment router advertisements to evade RA Guard? [y/n] "
+    if [[ $REPLY =~ [Yy] ]]
+    then
+	FRAGMENT=true
+    fi
 fi
 #Configure these system parameters in a non-persistent way for now
 loadIPv6Module
